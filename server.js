@@ -1,16 +1,17 @@
-const express = require('express');
-const multer = require('multer');
-const cors = require('cors');
-const knex = require('knex');
-const fs = require('fs');
+const express = require('express')
+const multer = require('multer')
+const cors = require('cors')
+const knex = require('knex')
+const fs = require('fs')
+const dotenv = require('dotenv').config()
 
 const postgres = knex({
 	client: 'pg',
 	connection: {
-		host : '127.0.0.1',
-		user : '',
-		password : '',
-		database : 'files',
+		host : process.env.DB_HOST,
+		user : process.env.DB_USER,
+		password : process.env.DB_PASS,
+		database : process.env.DB_NAME,
 	}
 })
 
@@ -155,4 +156,4 @@ app.post('/upload', upload.single('chosenFile'), (req, res, next) => {
 	res.json(resObject)
 })
 
-app.listen(3001);
+app.listen(process.env.PORT);
