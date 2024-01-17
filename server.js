@@ -23,15 +23,18 @@ const storage = multer.diskStorage({
 		cb(null, process.env.STORAGE_LOC)
 	},
 	filename: function (req, file, cb) {
-		const time = Date.now() % 100000000
+		const time = Date.now() % 86400000
+		const day = Math.floor(Date.now() / 86400000)
 		const b36time = time.toString(36)
 		const extensionarray = file.originalname.split(".")
 		const extension = extensionarray[extensionarray.length - 1]
-		response = b36time + '.' + extension
+		response = b36time + "." + extension
 		postgres('files').insert({
 			filename: response,
 			timemillis: time,
+			date: day,
 		}).then()
+
 		cb(null, response)
 	}
 })
@@ -47,21 +50,26 @@ app.use(express.static(process.env.STORAGE_LOC));
 // deletion schedule
 cron.schedule('0 0 * * *',() => {
 
+	console.log("hey guys")
 	const currentDate = Math.floor(Date.now() / 86400000);
 
 	postgres('files')
 		.select('filename')
 		.from('files')
-		.where('date', '<', currentDate)
-		.then(
-			fs.unlink('./storage/' + entry.filename, () => {})
-		)
-	postgres('files')
-		.delete()
-		.where('date', '<', currentDate)
-		.then()
-
-
+		.where('date', '<', currentDate - 1)
+		.then((names) => {
+			for (var i = 0; i < names.length; i++) {
+				var item = names[i]
+				console.log('Name:', item.filename)
+				fs.unlink(process.env.STORAGE_LOC + item.filename, () => {})
+			}
+			postgres('files')
+			.select('filename')
+			.from('files')
+			.where('date', '<', currentDate - 1)
+			.del()
+			.then()
+		})
 })
 
 
@@ -91,19 +99,6 @@ app.post('/uploadtext', upload.none(), (req, res, next) => {
 
 })
 app.post('/upload', upload.single('chosenFile'), (req, res, next) => {
-	const filename = function (req, file, cb) {
-		const time = Date.now() % 86400000
-		const day = Math.floor(Date.now() / 86400000)
-		const b36time = time.toString(36)
-		response = b36time + '.txt'
-		postgres('files').insert({
-			filename: response,
-			timemillis: time,
-			date: day,
-		}).then()
-		return response
-	}
-
 	const resObject = {link: response}
 
 	res.json(resObject)
