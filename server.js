@@ -99,7 +99,7 @@ app.post('/upload', upload.single('chosenFile'), (req, res, next) => {
 		postgres('files').insert({
 			filename: response,
 			timemillis: time,
-			date = day,
+			date: day,
 		}).then()
 		return response
 	}
