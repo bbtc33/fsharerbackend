@@ -4,6 +4,7 @@ const cors = require('cors')
 const knex = require('knex')
 const fs = require('fs')
 const dotenv = require('dotenv').config()
+const cron = require('node-cron')
 
 const postgres = knex({
 	client: 'pg',
@@ -19,7 +20,7 @@ let response;
 
 const storage = multer.diskStorage({
 	destination: function (req, file, cb) {
-		cb(null, './storage')
+		cb(null, process.env.STORAGE_LOC)
 	},
 	filename: function (req, file, cb) {
 		const time = Date.now() % 100000000
@@ -41,7 +42,27 @@ const upload = multer({storage: storage})
 const app = express();
 
 app.use(cors());
-app.use(express.static('storage'));
+app.use(express.static(process.env.STORAGE_LOC));
+
+// deletion schedule
+cron.schedule('0 0 * * *',() => {
+
+	const currentDate = Math.floor(Date.now() / 86400000);
+
+	postgres('files')
+		.select('filename')
+		.from('files')
+		.where('date', '<', currentDate)
+		.then(
+			fs.unlink('./storage/' + entry.filename, () => {})
+		)
+	postgres('files')
+		.delete()
+		.where('date', '<', currentDate)
+		.then()
+
+
+})
 
 
 app.get('/', (req, res) => {
@@ -51,104 +72,36 @@ app.get('/', (req, res) => {
 app.post('/uploadtext', upload.none(), (req, res, next) => {
 
 	const filename = function (req, file, cb) {
-		const time = Date.now() % 100000000
+		const time = Date.now() % 86400000
+		const day = Math.floor(Date.now() / 86400000)
 		const b36time = time.toString(36)
 		response = b36time + '.txt'
 		postgres('files').insert({
 			filename: response,
 			timemillis: time,
+			date: day,
 		}).then()
 		return response
 	}
 
-	fs.appendFile( './storage/' + filename(), req.body.chosenFile, () => {})
-
-	const modtime = Date.now() % 100000000;
-	const min = () => {
-		if (modtime < 43200000){
-		return modtime - 43200000 + 99999999
-		}else {
-		return modtime - 43200000
-		}
-	}
-
-	let valid;
-
-	if (min() < modtime){
-		postgres('files')
-			.select('filename')
-			.from('files')
-			.whereNotBetween('timemillis', ([min(),modtime]))
-			.then(valid => {
-				valid.map(function(entry) {
-					fs.unlink('./storage/' + entry.filename, () => {})
-				})
-			})
-		postgres('files')
-			.delete()
-			.whereNotBetween('timemillis', ([min(),modtime]))
-			.then()
-	}else {
-		postgres('files')
-			.select('filename')
-			.from('files')
-			.whereBetween('timemillis', ([min(),modtime]))
-			.then(valid => {
-				valid.map(function(entry) {
-					fs.unlink('./storage/' + entry.filename, () => {})
-				})
-			})
-		postgres('files')
-			.delete()
-			.whereBetween('timemillis',([min(),modtime]))
-			.then()
-	}
-
+	fs.appendFile( process.env.STORAGE_LOC + filename(), req.body.chosenFile, () => {})
 	const resObject = {link: response}
 
 	res.json(resObject)
 
 })
 app.post('/upload', upload.single('chosenFile'), (req, res, next) => {
-	const modtime = Date.now() % 100000000;
-	const min = () => {
-		if (modtime < 43200000){
-		return modtime - 43200000 + 99999999
-		}else {
-		return modtime - 43200000
-		}
-	}
-
-	let valid;
-
-	if (min() < modtime){
-		postgres('files')
-			.select('filename')
-			.from('files')
-			.whereNotBetween('timemillis', ([min(),modtime]))
-			.then(valid => {
-				valid.map(function(entry) {
-					fs.unlink('./storage/' + entry.filename, () => {})
-				})
-			})
-		postgres('files')
-			.delete()
-			.whereNotBetween('timemillis', ([min(),modtime]))
-			.then()
-	}else {
-		postgres('files')
-			.select('filename')
-			.from('files')
-			.whereBetween('timemillis', ([min(),modtime]))
-			.then(valid => {
-				valid.map(function(entry) {
-					fs.unlink('./storage/' + entry.filename, () => {})
-				})
-			})
-		postgres('files')
-			.delete()
-			.whereBetween('timemillis',([min(),modtime]))
-			.then()
+	const filename = function (req, file, cb) {
+		const time = Date.now() % 86400000
+		const day = Math.floor(Date.now() / 86400000)
+		const b36time = time.toString(36)
+		response = b36time + '.txt'
+		postgres('files').insert({
+			filename: response,
+			timemillis: time,
+			date = day,
+		}).then()
+		return response
 	}
 
 	const resObject = {link: response}
