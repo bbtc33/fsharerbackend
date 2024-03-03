@@ -22,19 +22,21 @@ const storage = multer.diskStorage({
 	destination: function (req, file, cb) {
 		cb(null, process.env.STORAGE_LOC)
 	},
-	filename: function (req, file, cb) {
-		const time = Date.now() % 86400000
-		const day = Math.floor(Date.now() / 86400000)
-		const b36time = time.toString(36)
-		const extensionarray = file.originalname.split(".")
-		const extension = extensionarray[extensionarray.length - 1]
-		response = b36time + "." + extension
+	filename: async function (req, file, cb) {
+		day = Math.floor(Date.now() / 86400000)
+		extensionarray = file.originalname.split(".")
+		extension = extensionarray[extensionarray.length - 1]
+		do {
+			random_int = Math.floor(Math.random() * Math.pow(36, process.env.NAME_LENGTH))
+			b36_int = random_int.toString(36)
+			response = b36_int + '.' + extension
+			match = await postgres('files').where('filename',response)
+
+		} while(match.length != 0)
 		postgres('files').insert({
 			filename: response,
-			timemillis: time,
 			date: day,
 		}).then()
-
 		cb(null, response)
 	}
 })
@@ -50,26 +52,21 @@ app.use(express.static(process.env.STORAGE_LOC));
 // deletion schedule
 cron.schedule('0 0 * * *',() => {
 
-	console.log("hey guys")
 	const currentDate = Math.floor(Date.now() / 86400000);
 
 	postgres('files')
 		.select('filename')
 		.from('files')
-		.where('date', '<', currentDate - 1)
-		.then((names) => {
-			for (var i = 0; i < names.length; i++) {
-				var item = names[i]
-				console.log('Name:', item.filename)
-				fs.unlink(process.env.STORAGE_LOC + item.filename, () => {})
-			}
-			postgres('files')
-			.select('filename')
-			.from('files')
-			.where('date', '<', currentDate - 1)
-			.del()
-			.then()
-		})
+		.where('date', '<', currentDate)
+		.then(
+			fs.unlink('./storage/' + entry.filename, () => {})
+		)
+	postgres('files')
+		.delete()
+		.where('date', '<', currentDate)
+		.then()
+
+
 })
 
 
@@ -77,9 +74,26 @@ app.get('/', (req, res) => {
 	res.send("API is up and running")
 })
 
-app.post('/uploadtext', upload.none(), (req, res, next) => {
+app.post('/uploadtext', upload.none(), async (req, res, next) => {
+	day = Math.floor(Date.now() / 86400000)
+	do {
+		random_int = Math.floor(Math.random() * Math.pow(36, process.env.NAME_LENGTH))
+		b36_int = random_int.toString(36)
+		response = b36_int + '.txt'
+		match = await postgres('files').where('filename',response)
+	} while(match.length != 0)
+	postgres('files').insert({
+		filename: response,
+		date: day,
+	})
 
-	const filename = function (req, file, cb) {
+	fs.appendFile( process.env.STORAGE_LOC + "/" + response, req.body.chosenFile, () => {})
+	const resObject = {link: response}
+
+	res.json(resObject)
+})
+app.post('/upload', upload.single('chosenFile'), (req, res, next) => {
+	/*const filename = function (req, file, cb) {
 		const time = Date.now() % 86400000
 		const day = Math.floor(Date.now() / 86400000)
 		const b36time = time.toString(36)
@@ -90,15 +104,8 @@ app.post('/uploadtext', upload.none(), (req, res, next) => {
 			date: day,
 		}).then()
 		return response
-	}
+	}*/
 
-	fs.appendFile( process.env.STORAGE_LOC + filename(), req.body.chosenFile, () => {})
-	const resObject = {link: response}
-
-	res.json(resObject)
-
-})
-app.post('/upload', upload.single('chosenFile'), (req, res, next) => {
 	const resObject = {link: response}
 
 	res.json(resObject)
