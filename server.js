@@ -43,7 +43,10 @@ const storage = multer.diskStorage({
 
 
 
-const upload = multer({storage: storage})
+const upload = multer({
+	storage: storage,
+	limits:{fileSize:536870912 } // 500 mb
+})
 const app = express();
 
 app.use(cors());
